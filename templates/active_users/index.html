@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>Real Time Feeds</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    </head>
+    <body>
+        <div class="container mt-2">
+            <h1>Active Users</h1>
+            <div>
+                <ul id="id_active_users">
+                </ul>
+            </div>
+        </div>
+        
+        <script type="text/javascript" src="//code.jquery.com/jquery-3.4.1.js""></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/reconnecting-websocket/1.0.0/reconnecting-websocket.js"></script>
+        <script type="text/javascript">
+            var ws = 'ws';
+            var loc = window.location;
+            var host = 'localhost:8000'
+            var connect_status = 'off';
+            var currentUser = {
+                id: {{ request.user.id }},
+                username: '{{ request.user.username }}',
+                status: 'offline'
+            }
+
+            var state = []
+
+            if (loc.protocol == 'https:') {
+                ws = 'wss';
+            }
+
+            var endpoint = ws + '://' + host + loc.pathname;
+            const userStatusSocket = new ReconnectingWebSocket(endpoint);
+            
+            userStatusSocket.onopen = function(e) {
+                currentUser.status = 'active'
+                currentUserStatus(currentUser)
+            }
+
+            userStatusSocket.onmessage = function(e){
+                var resp = JSON.parse(e.data)
+                console.log('on message')
+                console.log(searchUser(resp.data))
+                loadUsers()
+            }
+
+            function getUser(userVal) {
+                let user = state.find(obj => {
+                    return obj.id === userVal.id
+                })
+                return user ? user : null
+            }
+
+            function updateUser(userVal) {
+                var foundIndex = state.findIndex(x => x.id == userVal.id);
+                state[foundIndex] = userVal;
+                return state
+            }
+
+            function searchUser(userVal) {
+
+                if (getUser(userVal)) {
+                    console.log(userVal)
+                    updateUser(userVal)
+                } else {
+                    state.push(userVal)
+                }
+                return state
+            }
+
+            userStatusSocket.onclose = function(e) {
+                console.log('on close')
+                currentUser.status = 'offline'
+                currentUserStatus(currentUser)
+            }
+
+            function currentUserStatus(user) {
+                userStatusSocket.send(JSON.stringify(user));
+
+                connect_status = connect_status === 'off' ? 'open': 'off'
+            }
+
+            function loadUsers() {
+                const userHtml = state.map(user => {
+                    return '<li>' + user.username + '- '  + user.status + '</li>'
+                })
+                $('#id_active_users').html(userHtml)
+            }
+
+            $(window).on("unload", function(e) {
+                currentUser.status = 'offline'
+                currentUserStatus(currentUser)
+            });
+
+            $(window).on("blur", function(e) {
+                currentUser.status = 'away'
+                currentUserStatus(currentUser)
+            });
+
+            $(window).on("focus", function(e) {
+                currentUser.status = 'active'
+                currentUserStatus(currentUser)
+            });
+
+        </script>
+    </body>
+</html>
