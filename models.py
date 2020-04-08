@@ -17,4 +17,4 @@ class ActiveUser(models.Model):
     last_active = models.DateField()
 
     def __str__(self):
-        return f'{self.user.username} is {self.get_status_display}'
+        return f'{self.user.username}'
